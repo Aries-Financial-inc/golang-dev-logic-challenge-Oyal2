@@ -2,12 +2,18 @@ package analysis
 
 import (
 	"math"
+	"sort"
+	"strconv"
 
 	"github.com/Aries-Financial-inc/golang-dev-logic-challenge-Oyal2/internal/model"
 )
 
 // AnalyzeContracts performs the analysis on the given options contracts
 func AnalyzeContracts(contracts []model.OptionsContract) model.Analysis {
+	// Sort the contracts by strike price
+	sort.Slice(contracts, func(i, j int) bool {
+		return contracts[i].StrikePrice < contracts[j].StrikePrice
+	})
 	// Get the Price Range
 	minPrice, maxPrice := determinePriceRange(contracts)
 	priceStep := (maxPrice - minPrice) / 100
@@ -19,33 +25,35 @@ func AnalyzeContracts(contracts []model.OptionsContract) model.Analysis {
 	}
 
 	// Calculate the maximum profit and maximum loss from the graph
-	maxProfit, maxLoss := calculateMaxProfitAndLoss(graph)
+	// maxProfit, maxLoss := calculateMaxProfitAndLoss(graph)
 	// Calculate the break-even points
-	breakEvenPoints := calculateBreakEvenPoints(graph)
+	breakEvenPoints := calculateBreakEvenPoints(contracts)
+	maxLoss := calculateMaxLoss(contracts)
+	var maxLossStr string
+	if math.IsInf(maxLoss, 1) {
+		maxLossStr = "negative infinity"
+	} else {
+		maxLossStr = strconv.FormatFloat(maxLoss, 'f', 2, 64)
+	}
+
+	maxProfit := calculateMaxProfit(contracts)
+	var maxProfitStr string
+	if math.IsInf(maxProfit, 1) {
+		maxProfitStr = "infinity"
+	} else {
+		maxProfitStr = strconv.FormatFloat(maxProfit, 'f', 2, 64)
+	}
 
 	return model.Analysis{
 		XYValues:        graph,
-		MaxProfit:       maxProfit,
-		MaxLoss:         maxLoss,
+		MaxProfit:       maxProfitStr,
+		MaxLoss:         maxLossStr,
 		BreakEvenPoints: breakEvenPoints,
 	}
 }
 
 func determinePriceRange(contracts []model.OptionsContract) (float64, float64) {
-	if len(contracts) == 0 {
-		return 0.0, 0.0
-	}
-	minStrike, maxStrike := contracts[0].StrikePrice, contracts[0].StrikePrice
-	// Find the minimum and maximum strike prices among the contracts
-	for _, contract := range contracts {
-		if contract.StrikePrice < minStrike {
-			minStrike = contract.StrikePrice
-		}
-		if contract.StrikePrice > maxStrike {
-			maxStrike = contract.StrikePrice
-		}
-	}
-
+	minStrike, maxStrike := contracts[0].StrikePrice, contracts[len(contracts)-1].StrikePrice
 	// Calculate a buffer for the price range
 	buffer := (maxStrike + minStrike) / 2
 	// Ensure the minimum price is not negative
@@ -88,30 +96,207 @@ func calculatePutProfit(contract model.OptionsContract, price float64) float64 {
 }
 
 // calculateMaxProfitAndLoss calculates the maximum profit and maximum loss from the graph
-func calculateMaxProfitAndLoss(graph []model.XYValue) (float64, float64) {
-	maxProfit, maxLoss := -math.MaxFloat64, math.MaxFloat64
-	// Iterate through the graph to find the maximum and minimum profit
-	for _, point := range graph {
-		if point.Y > maxProfit {
-			maxProfit = point.Y
-		}
-		if point.Y < maxLoss {
-			maxLoss = point.Y
-		}
+func calculateMaxProfit(contracts []model.OptionsContract) float64 {
+	maxProfit := math.Inf(-1)
+	entryCredit := calculateEntryPoint(contracts)
+
+	var pieceWiseRange []model.PieceWiseRange
+	pieceWiseRange = append(pieceWiseRange, model.PieceWiseRange{A: math.Inf(-1), B: contracts[0].StrikePrice})
+	for i := 1; i < len(contracts); i++ {
+		pieceWiseRange = append(pieceWiseRange, model.PieceWiseRange{A: contracts[i-1].StrikePrice, B: contracts[i].StrikePrice})
 	}
-	return maxProfit, maxLoss
+	pieceWiseRange = append(pieceWiseRange, model.PieceWiseRange{A: contracts[len(contracts)-1].StrikePrice, B: math.Inf(1)})
+
+	for _, pieceWiseFunction := range pieceWiseRange {
+		var testPoint float64
+		if math.IsInf(pieceWiseFunction.A, -1) {
+			testPoint = pieceWiseFunction.A
+		} else if math.IsInf(pieceWiseFunction.B, 1) {
+			testPoint = pieceWiseFunction.B
+		} else {
+			testPoint = (pieceWiseFunction.A + pieceWiseFunction.B) / 2
+		}
+
+		totalRisk := calculateTotalRisk(testPoint, contracts)
+		profitLoss := totalRisk - entryCredit
+
+		// Update maxProfit if the current profit is higher
+		if profitLoss > maxProfit {
+			maxProfit = profitLoss
+		}
+
+	}
+
+	return maxProfit
 }
 
-// calculateBreakEvenPoints calculates the break-even points from the graph
-func calculateBreakEvenPoints(graph []model.XYValue) []float64 {
-	var breakEvenPoints []float64
-	// Iterate through the graph to find the points where the profit crosses zero
-	for i := 1; i < len(graph); i++ {
-		if (graph[i-1].Y <= 0 && graph[i].Y > 0) || (graph[i-1].Y >= 0 && graph[i].Y < 0) {
-			breakEvenPoints = append(breakEvenPoints, graph[i].X)
+// calculateMaxProfitAndLoss calculates the maximum profit and maximum loss from the graph
+func calculateMaxLoss(contracts []model.OptionsContract) float64 {
+	maxLoss := math.Inf(1)
+	entryCredit := calculateEntryPoint(contracts) * 100
+
+	var pieceWiseRange []model.PieceWiseRange
+	pieceWiseRange = append(pieceWiseRange, model.PieceWiseRange{A: math.Inf(-1), B: contracts[0].StrikePrice})
+	for i := 1; i < len(contracts); i++ {
+		pieceWiseRange = append(pieceWiseRange, model.PieceWiseRange{A: contracts[i-1].StrikePrice, B: contracts[i].StrikePrice})
+	}
+	pieceWiseRange = append(pieceWiseRange, model.PieceWiseRange{A: contracts[len(contracts)-1].StrikePrice, B: math.Inf(1)})
+
+	for _, pieceWiseFunction := range pieceWiseRange {
+		var testPoint float64
+		if math.IsInf(pieceWiseFunction.A, -1) {
+			testPoint = pieceWiseFunction.A
+		} else if math.IsInf(pieceWiseFunction.B, 1) {
+			testPoint = pieceWiseFunction.B
+		} else {
+			testPoint = (pieceWiseFunction.A + pieceWiseFunction.B) / 2
+		}
+
+		totalRisk := calculateTotalRisk(testPoint, contracts)
+		profitLoss := totalRisk - entryCredit
+
+		// Update maxProfit if the current profit is higher
+		if profitLoss < maxLoss {
+			maxLoss = profitLoss
+		}
+
+	}
+
+	return maxLoss
+}
+
+func calculateTotalRisk(price float64, contracts []model.OptionsContract) float64 {
+	risk := 0.0
+	// Sum up the profit for each contract at the given price
+	for _, contract := range contracts {
+		switch contract.Type {
+		case model.Call:
+			if contract.LongShort == model.Long {
+				risk += callRisk(price, contract.StrikePrice)
+			} else {
+				risk += (-callRisk(price, contract.StrikePrice))
+			}
+		case model.Put:
+			if contract.LongShort == model.Long {
+				risk += putRisk(price, contract.StrikePrice)
+			} else {
+				risk += (-callRisk(price, contract.StrikePrice))
+			}
 		}
 	}
-	return breakEvenPoints
+	// Round off the profit
+	return round(risk * 100)
+}
+
+func calculateBreakEvenPoints(contracts []model.OptionsContract) []float64 {
+	minStrike, maxStrike := contracts[0].StrikePrice, contracts[len(contracts)-1].StrikePrice
+	var solutions []float64
+	entryCredit := calculateEntryPoint(contracts)
+	n := len(contracts)
+	if n == 0 {
+		return solutions
+	}
+
+	// Case 1: x <= min(strikes)
+	sumPut := 0.0
+	countPut := 0
+	for _, contract := range contracts {
+		if contract.Type == model.Put && contract.LongShort == model.Long {
+			sumPut += contract.StrikePrice
+			countPut++
+		} else if contract.Type == model.Put && contract.LongShort == model.Short {
+			sumPut -= contract.StrikePrice
+			countPut--
+		}
+	}
+	if countPut > 0 {
+		x := (sumPut - entryCredit) / float64(countPut)
+		if x <= minStrike {
+			solutions = append(solutions, round(x))
+		}
+	}
+
+	// Intermediate cases (combinations of call and put)
+	for mask := 1; mask < (1 << n); mask++ {
+		sum := 0.0
+		count := 0
+		valid := true
+		for i := 0; i < n; i++ {
+			if (mask & (1 << i)) != 0 {
+				if contracts[i].Type == model.Call && contracts[i].LongShort == model.Long {
+					sum += callRisk(sum, contracts[i].StrikePrice)
+				} else {
+					sum += (-callRisk(sum, contracts[i].StrikePrice))
+				}
+				count++
+			} else {
+				if contracts[i].LongShort == model.Long {
+					sum += putRisk(sum, contracts[i].StrikePrice)
+					count++
+				} else {
+					sum += (-putRisk(sum, contracts[i].StrikePrice))
+					count++
+				}
+			}
+		}
+		if valid {
+			x := (sum - entryCredit) / float64(count)
+			if x > minStrike && x <= maxStrike {
+				solutions = append(solutions, round(x))
+			}
+		}
+	}
+
+	// Case 3: x > max(strikes)
+	sumCall := 0.0
+	countCall := 0
+	for _, contract := range contracts {
+		if contract.Type == model.Call && contract.LongShort == model.Long {
+			sumCall += contract.StrikePrice
+			countCall++
+		} else if contract.Type == model.Call && contract.LongShort == model.Short {
+			sumCall -= contract.StrikePrice
+			countCall--
+		}
+	}
+	if countCall > 0 {
+		x := (sumCall + entryCredit) / float64(countCall)
+		if x > maxStrike {
+			solutions = append(solutions, round(x))
+		}
+	}
+
+	return solutions
+}
+
+func calculateEntryPoint(contracts []model.OptionsContract) float64 {
+	profit := 0.0
+	for _, contract := range contracts {
+		switch contract.Type {
+		case model.Call:
+			if contract.LongShort == model.Long {
+				profit += contract.Ask
+			} else {
+				profit -= contract.Ask
+			}
+		case model.Put:
+			if contract.LongShort == model.Long {
+				profit += contract.Bid
+			} else {
+				profit -= contract.Bid
+			}
+		}
+	}
+
+	return round(profit)
+}
+
+func callRisk(price, strike float64) float64 {
+	return math.Max(0, price-strike)
+}
+
+func putRisk(price, strike float64) float64 {
+	return math.Max(0, strike-price)
 }
 
 // round rounds a float to two decimal places
