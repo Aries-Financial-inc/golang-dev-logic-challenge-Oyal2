@@ -1,6 +1,5 @@
 [![Work in MakeCode](https://classroom.github.com/assets/work-in-make-code-8824cc13a1a3f34ffcd245c82f0ae96fdae6b7d554b6539aec3a03a70825519c.svg)](https://classroom.github.com/online_ide?assignment_repo_id=15268901&assignment_repo_type=AssignmentRepo)
 
-
 ## Objective
 
 Design and implement a backend service for options contracts risk and reward analysis using GoLang.
@@ -12,25 +11,28 @@ Aries Financial is looking for a Lead GoLang Developer that can create a backend
 Here are the tasks you need to accomplish:
 
 1. **Task 1: Options Contract Model**
-    - Implement an OptionsContract model with the following fields: type (call or put), strike_price, bid, ask, expiration_date, long_short
+
+   - Implement an OptionsContract model with the following fields: type (call or put), strike_price, bid, ask, expiration_date, long_short
 
 2. **Task 2: Analysis Endpoint**
-    - Implement an endpoint that accepts an array of up to four options contracts and returns the following:
-        - An array of X & Y values for the risk & reward graph
-        - The maximum possible profit
-        - The maximum possible loss
-        - All break even points
+
+   - Implement an endpoint that accepts an array of up to four options contracts and returns the following:
+     - An array of X & Y values for the risk & reward graph
+     - The maximum possible profit
+     - The maximum possible loss
+     - All break even points
 
 3. **Task 3: Analysis Logic**
-    - Implement logic to calculate the X & Y values for the risk & reward graph
-        - X values should be the price of the underlying at the time of expiry
-        - Y values should be the profit or loss at that price
-    - Implement logic to calculate the maximum possible profit, maximum possible loss, and all break even points
+
+   - Implement logic to calculate the X & Y values for the risk & reward graph
+     - X values should be the price of the underlying at the time of expiry
+     - Y values should be the profit or loss at that price
+   - Implement logic to calculate the maximum possible profit, maximum possible loss, and all break even points
 
 4. **Task 4: Testing**
-    - Write unit tests for the options contract model validation
-    - Write unit tests for the analysis endpoint
-    - Write integration tests that simulate a user submitting options contracts and receiving the analysis results
+   - Write unit tests for the options contract model validation
+   - Write unit tests for the analysis endpoint
+   - Write integration tests that simulate a user submitting options contracts and receiving the analysis results
 
 ### Evaluation Criteria
 
@@ -39,7 +41,7 @@ Here are the tasks you need to accomplish:
 - Structure and organization of the code.
 - Quality of the tests and coverage of the code.
 
-### CodeSubmit 
+### CodeSubmit
 
 Please organize, design, test, and document your code as if it were
 going into production - then push your changes to the master branch.
@@ -48,3 +50,12 @@ Have fun coding! 🚀
 
 The Aries Financial Team
 
+### How to Run
+
+To run the application correctly, follow these steps:
+
+1. Create a `.env` file based on the `.env.example` file.
+2. Place the newly created `.env` file either in the `cmd/api` directory or at the root of the project directory if you plan to use the `make` command.
+
+To start the server, execute the command at the root of the project:
+`make run`
