@@ -70,7 +70,7 @@ func CalculateMaxLossAndProfit(contracts []model.OptionsContract) (float64, floa
 	}
 
 	// Return the maximum profit and minimum loss
-	return maxProfit, minLoss
+	return MultiplyBySharesAmount(maxProfit, SHARES_PER_CONTRACT), MultiplyBySharesAmount(minLoss, SHARES_PER_CONTRACT)
 }
 
 // CalculateTotalProfit calculates the total profit for a set of options contracts at a given price

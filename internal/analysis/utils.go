@@ -7,7 +7,7 @@ import (
 )
 
 // round rounds a float to two decimal places
-func round(x float64) float64 {
+func roundNearestHundredth(x float64) float64 {
 	return math.Ceil(x*100) / 100
 }
 
@@ -44,10 +44,10 @@ func CalculateEntryPoint(contracts []model.OptionsContract) float64 {
 	}
 
 	// Round the total entry point to two decimal places
-	return round(profit)
+	return roundNearestHundredth(profit)
 }
 
 // MultiplyBySharesAmount multiplies a given float64 value by a specified shares count
 func MultiplyBySharesAmount(value, factor float64) float64 {
-	return round(value * factor)
+	return roundNearestHundredth(value * factor)
 }

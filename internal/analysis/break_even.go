@@ -26,10 +26,10 @@ func CalculateBreakEvenPoints(contracts []model.OptionsContract) (breakEvenPoint
 	}
 
 	// Calculate break-even point for the put contracts
-	if countPut > 0 {
-		x := (sumPut - entryPrice) / float64(countPut)
-		if x <= contracts[0].StrikePrice {
-			breakEvenPoints = append(breakEvenPoints, round(x))
+	if countPut != 0 {
+		breakPoint := (sumPut - entryPrice) / float64(countPut)
+		if breakPoint < contracts[0].StrikePrice {
+			breakEvenPoints = append(breakEvenPoints, roundNearestHundredth(breakPoint))
 		}
 	}
 
@@ -52,15 +52,20 @@ func CalculateBreakEvenPoints(contracts []model.OptionsContract) (breakEvenPoint
 
 		// Check if there is a sign change between x1 and x2 indicating a break-even point
 		if minProfitLoss < 0 && 0 < maxProfitLoss || maxProfitLoss < 0 && 0 < minProfitLoss {
-			breakEvenPoints = append(breakEvenPoints, round(BisectionMethod(x1, x2, entryPrice, contracts)))
+			breakEvenPoints = append(breakEvenPoints, roundNearestHundredth(BisectionMethod(x1, x2, entryPrice, contracts)))
 		}
 	}
 
-	// Case 3: x > max(strikes) Right Extremity
+	if len(contracts) == 1 {
+		profitLoss := CalculateProfitLoss(contracts[0].StrikePrice, entryPrice, contracts)
+		if profitLoss == 0 {
+			breakEvenPoints = append(breakEvenPoints, contracts[0].StrikePrice)
+		}
+	}
+
+	// Case 3: x > max(strikes)
 	sumCall := 0.0
 	countCall := 0
-
-	// Iterate over all contracts to calculate sum and count for long and short calls
 	for _, contract := range contracts {
 		if contract.Type == model.Call && contract.LongShort == model.Long {
 			sumCall += contract.StrikePrice
@@ -70,12 +75,10 @@ func CalculateBreakEvenPoints(contracts []model.OptionsContract) (breakEvenPoint
 			countCall--
 		}
 	}
-
-	// Calculate break-even point for the call contracts
-	if countCall > 0 {
-		x := (sumCall + entryPrice) / float64(countCall)
-		if x > contracts[len(contracts)-1].StrikePrice {
-			breakEvenPoints = append(breakEvenPoints, round(x))
+	if countCall != 0 {
+		breakPoint := (sumCall + entryPrice) / float64(countCall)
+		if breakPoint > contracts[len(contracts)-1].StrikePrice {
+			breakEvenPoints = append(breakEvenPoints, roundNearestHundredth(breakPoint))
 		}
 	}
 
